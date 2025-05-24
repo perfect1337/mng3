@@ -67,6 +67,11 @@ const OrderSchema = new mongoose.Schema({
 // Создаем составной индекс для часто используемых запросов
 OrderSchema.index({ userId: 1, status: 1, createdAt: -1 });
 
+// Добавляем индексы для отчетов и агрегаций
+OrderSchema.index({ createdAt: -1, totalAmount: 1 }); // Для анализа выручки по времени
+OrderSchema.index({ status: 1, createdAt: -1, totalAmount: 1 }); // Для анализа статусов и выручки
+OrderSchema.index({ 'items.menuItem': 1, createdAt: -1 }); // Для анализа популярных товаров
+
 const Order = (mongoose.models.Order as mongoose.Model<IOrder>) || 
   mongoose.model<IOrder>('Order', OrderSchema);
 

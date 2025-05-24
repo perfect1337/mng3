@@ -4,6 +4,8 @@ import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import Charts from '../../components/Charts';
 import Reports from '../../components/Reports';
+import CategoryAnalysis from '../../components/CategoryAnalysis';
+import UserAnalysis from '../../components/UserAnalysis';
 
 interface ReportData {
   revenue: {
@@ -22,6 +24,70 @@ interface ReportData {
     revenue: number;
     orders: number;
   }>;
+  orders: Array<{
+    _id: string;
+    userId: string;
+    items: Array<{
+      menuItem: {
+        _id: string;
+        name: string;
+        price: number;
+      };
+      quantity: number;
+      price: number;
+    }>;
+    totalAmount: number;
+    status: 'pending' | 'processing' | 'completed' | 'cancelled';
+    createdAt: string;
+  }>;
+}
+
+interface CategoryData {
+  categoryAnalysis: Array<{
+    category: string;
+    totalRevenue: number;
+    totalOrders: number;
+    averageOrderValue: number;
+    topItems: Array<{
+      name: string;
+      quantity: number;
+      revenue: number;
+    }>;
+  }>;
+  categoryTrends: Array<{
+    _id: string;
+    trends: Array<{
+      date: string;
+      revenue: number;
+      orders: number;
+    }>;
+  }>;
+}
+
+interface UserData {
+  userOrderAnalysis: Array<{
+    _id: string;
+    userName: string;
+    email: string;
+    totalOrders: number;
+    totalSpent: number;
+    averageOrderValue: number;
+    lastOrderDate: string;
+    statusCounts: {
+      pending: number;
+      processing: number;
+      completed: number;
+      cancelled: number;
+    };
+  }>;
+  userActivityTrends: Array<{
+    userName: string;
+    activityTrend: Array<{
+      date: string;
+      orders: number;
+      spent: number;
+    }>;
+  }>;
 }
 
 export default function ReportsPage() {
@@ -30,6 +96,9 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [categoryData, setCategoryData] = useState<CategoryData | null>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [activeTab, setActiveTab] = useState('general');
   const [dateRange, setDateRange] = useState({
     start: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0],
@@ -37,18 +106,32 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user?.role === 'admin') {
-      fetchReportData();
+      fetchAllReports();
     } else if (status === 'authenticated') {
       router.push('/menu');
     }
   }, [status, session, dateRange]);
 
-  const fetchReportData = async () => {
+  const fetchAllReports = async () => {
+    setLoading(true);
     try {
-      const response = await fetch(`/api/reports/stats?start=${dateRange.start}&end=${dateRange.end}`);
-      if (!response.ok) throw new Error('Failed to fetch report data');
-      const data = await response.json();
-      setReportData(data);
+      // Загрузка общих отчетов
+      const reportResponse = await fetch(`/api/reports/stats?start=${dateRange.start}&end=${dateRange.end}`);
+      if (!reportResponse.ok) throw new Error('Failed to fetch report data');
+      const reportJson = await reportResponse.json();
+      setReportData(reportJson);
+
+      // Загрузка анализа по категориям
+      const categoryResponse = await fetch(`/api/reports/category-analysis?start=${dateRange.start}&end=${dateRange.end}`);
+      if (!categoryResponse.ok) throw new Error('Failed to fetch category analysis');
+      const categoryJson = await categoryResponse.json();
+      setCategoryData(categoryJson);
+
+      // Загрузка анализа по пользователям
+      const userResponse = await fetch(`/api/reports/user-analysis?start=${dateRange.start}&end=${dateRange.end}`);
+      if (!userResponse.ok) throw new Error('Failed to fetch user analysis');
+      const userJson = await userResponse.json();
+      setUserData(userJson);
     } catch (err) {
       setError('Failed to load report data');
     } finally {
@@ -110,64 +193,66 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        {reportData && (
+        {/* Табы для переключения между отчетами */}
+        <div className="mb-8">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab('general')}
+                className={`${
+                  activeTab === 'general'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                Общая статистика
+              </button>
+              <button
+                onClick={() => setActiveTab('categories')}
+                className={`${
+                  activeTab === 'categories'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                Анализ по категориям
+              </button>
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`${
+                  activeTab === 'users'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                Анализ по пользователям
+              </button>
+            </nav>
+          </div>
+        </div>
+
+        {/* Контент отчетов */}
+        {activeTab === 'general' && reportData && (
           <>
-            {/* Графики */}
             <div className="mb-8">
               <Charts data={reportData} />
             </div>
-
-            {/* Общая статистика */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-semibold mb-2">Общая выручка</h3>
-                <p className="text-3xl font-bold text-green-600">
-                  ${reportData.revenue.totalRevenue.toFixed(2)}
-                </p>
-              </div>
-              
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-semibold mb-2">Всего заказов</h3>
-                <p className="text-3xl font-bold text-blue-600">
-                  {reportData.revenue.totalOrders}
-                </p>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-semibold mb-2">Средний чек</h3>
-                <p className="text-3xl font-bold text-purple-600">
-                  ${reportData.revenue.averageOrderValue.toFixed(2)}
-                </p>
-              </div>
-            </div>
-
-            {/* Популярные товары */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-              <h2 className="text-xl font-semibold mb-4">Популярные товары</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {reportData.popularItems.map((item, index) => (
-                  <div key={index} className="bg-gray-50 rounded p-4">
-                    <h3 className="font-medium">{item.name}</h3>
-                    <p className="text-sm text-gray-600">Количество: {item.totalQuantity}</p>
-                    <p className="text-sm text-gray-600">Выручка: ${item.totalRevenue.toFixed(2)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Статусы заказов */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold mb-4">Статусы заказов</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {Object.entries(reportData.ordersByStatus).map(([status, count]) => (
-                  <div key={status} className="bg-gray-50 rounded p-4">
-                    <h3 className="font-medium capitalize">{status}</h3>
-                    <p className="text-2xl font-bold">{count}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <Reports orders={reportData.orders} />
           </>
+        )}
+
+        {activeTab === 'categories' && categoryData && (
+          <CategoryAnalysis
+            categoryAnalysis={categoryData.categoryAnalysis}
+            categoryTrends={categoryData.categoryTrends}
+          />
+        )}
+
+        {activeTab === 'users' && userData && (
+          <UserAnalysis
+            userOrderAnalysis={userData.userOrderAnalysis}
+            userActivityTrends={userData.userActivityTrends}
+          />
         )}
       </div>
     </Layout>

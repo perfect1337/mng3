@@ -1,116 +1,112 @@
 import React from 'react';
 import {
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer,
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   PieChart,
   Pie,
   Cell
 } from 'recharts';
 
-interface ChartData {
-  dailyRevenue: Array<{
-    _id: string;
-    revenue: number;
-    orders: number;
-  }>;
-  ordersByStatus: Record<string, number>;
-  popularItems: Array<{
-    name: string;
-    totalQuantity: number;
-    totalRevenue: number;
-  }>;
+interface RevenueData {
+  totalRevenue: number;
+  averageOrderValue: number;
+  totalOrders: number;
 }
 
-interface ChartProps {
-  data: ChartData;
+interface DailyRevenue {
+  _id: string;
+  revenue: number;
+  orders: number;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+interface PopularItem {
+  name: string;
+  totalQuantity: number;
+  totalRevenue: number;
+}
 
-const Charts: React.FC<ChartProps> = ({ data }) => {
-  // Format data for revenue chart
-  const revenueData = data.dailyRevenue.map(item => ({
-    date: new Date(item._id).toLocaleDateString(),
+interface ChartsProps {
+  data: {
+    revenue: RevenueData;
+    dailyRevenue: DailyRevenue[];
+    popularItems: PopularItem[];
+    ordersByStatus: Record<string, number>;
+  };
+}
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+
+const Charts: React.FC<ChartsProps> = ({ data }) => {
+  if (!data.dailyRevenue.length && !data.popularItems.length && Object.keys(data.ordersByStatus).length === 0) {
+    return (
+      <div className="text-center text-gray-600">
+        Нет данных для отображения графиков за выбранный период
+      </div>
+    );
+  }
+
+  // Подготовка данных для графиков
+  const dailyData = data.dailyRevenue.map(item => ({
+    date: item._id,
     revenue: item.revenue,
     orders: item.orders
   }));
 
-  // Format data for status pie chart
-  const statusData = Object.entries(data.ordersByStatus).map(([status, count]) => ({
-    status,
-    count
+  const statusData = Object.entries(data.ordersByStatus).map(([name, value]) => ({
+    name,
+    value
   }));
 
-  // Format data for popular items bar chart
-  const itemsData = data.popularItems.map(item => ({
-    name: item.name,
-    quantity: item.totalQuantity,
-    revenue: item.totalRevenue
-  }));
+  const popularItemsData = data.popularItems
+    .sort((a, b) => b.totalRevenue - a.totalRevenue)
+    .slice(0, 5);
 
   return (
     <div className="space-y-8">
-      {/* График выручки и заказов */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">Выручка и заказы по дням</h2>
-        <div className="h-[400px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={revenueData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis yAxisId="left" />
-              <YAxis yAxisId="right" orientation="right" />
-              <Tooltip />
-              <Legend />
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="revenue"
-                stroke="#10B981"
-                name="Выручка ($)"
-              />
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="orders"
-                stroke="#3B82F6"
-                name="Количество заказов"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* График статусов заказов */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">Статусы заказов</h2>
-        <div className="h-[400px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={statusData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="status" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="count" fill="#3B82F6" name="Количество заказов" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Order Status Distribution */}
+      {dailyData.length > 0 && (
         <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Status Distribution</h3>
-          <div className="h-64">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Ежедневная выручка</h3>
+          <div className="h-[400px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={dailyData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis yAxisId="left" />
+                <YAxis yAxisId="right" orientation="right" />
+                <Tooltip />
+                <Legend />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="revenue"
+                  name="Выручка"
+                  stroke="#8884d8"
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="orders"
+                  name="Заказы"
+                  stroke="#82ca9d"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {statusData.length > 0 && (
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Статусы заказов</h3>
+          <div className="h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -118,39 +114,52 @@ const Charts: React.FC<ChartProps> = ({ data }) => {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                  outerRadius={80}
+                  outerRadius={150}
                   fill="#8884d8"
                   dataKey="value"
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                 >
                   {statusData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip />
+                <Legend />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
+      )}
 
-        {/* Popular Items */}
+      {popularItemsData.length > 0 && (
         <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Popular Items</h3>
-          <div className="h-64">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Топ 5 популярных товаров</h3>
+          <div className="h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={itemsData}>
+              <BarChart data={popularItemsData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
-                <YAxis />
+                <YAxis yAxisId="left" />
+                <YAxis yAxisId="right" orientation="right" />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="quantity" fill="#8884d8" name="Quantity Sold" />
-                <Bar dataKey="revenue" fill="#82ca9d" name="Revenue ($)" />
+                <Bar
+                  yAxisId="left"
+                  dataKey="totalRevenue"
+                  name="Выручка"
+                  fill="#8884d8"
+                />
+                <Bar
+                  yAxisId="right"
+                  dataKey="totalQuantity"
+                  name="Количество"
+                  fill="#82ca9d"
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

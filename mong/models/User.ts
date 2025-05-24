@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema({
   }
 });
 
+// Добавляем индексы для управления пользователями
+userSchema.index({ role: 1, createdAt: -1 }); // Для фильтрации пользователей по роли и дате регистрации
+userSchema.index({ email: 1, role: 1 }); // Для поиска пользователей по email с учетом роли
+
 const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>('User', userSchema);
 
 export default User; 

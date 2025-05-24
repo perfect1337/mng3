@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]';
 import dbConnect from '../../../lib/mongodb';
-import Order from '../../../models/Order';
+import Order, { IOrder, IOrderItem } from '../../../models/Order';
 import { Types } from 'mongoose';
 
 interface MenuItem {
@@ -11,18 +11,13 @@ interface MenuItem {
   price: number;
 }
 
-interface OrderItem {
-  menuItem: MenuItem;
-  quantity: number;
-  price: number;
+// Интерфейс для заказа с заполненными данными о товарах
+interface PopulatedOrderItem extends Omit<IOrderItem, 'menuItem'> {
+  menuItem: MenuItem | null;
 }
 
-interface Order {
-  _id: Types.ObjectId;
-  items: OrderItem[];
-  totalAmount: number;
-  status: string;
-  createdAt: Date;
+interface OrderWithPopulatedItems extends Omit<IOrder, 'items'> {
+  items: PopulatedOrderItem[];
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -30,13 +25,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const session = await getServerSession(req, res, authOptions);
-
-  if (!session || session.user?.role !== 'admin') {
-    return res.status(403).json({ error: 'Unauthorized' });
-  }
-
   try {
+    const session = await getServerSession(req, res, authOptions);
+    
+    if (!session?.user?.role || session.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
     await dbConnect();
 
     const { start, end } = req.query;
@@ -48,10 +43,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const endDate = new Date(end as string);
     endDate.setHours(23, 59, 59, 999);
 
-    // Получаем все заказы за период
+    // Получаем все заказы за период с полной информацией о товарах
     const orders = await Order.find({
       createdAt: { $gte: startDate, $lte: endDate }
-    }).populate<{ items: { menuItem: MenuItem }[] }>('items.menuItem');
+    }).populate<OrderWithPopulatedItems>('items.menuItem');
+
+    if (!orders || orders.length === 0) {
+      return res.status(200).json({
+        revenue: {
+          totalRevenue: 0,
+          averageOrderValue: 0,
+          totalOrders: 0
+        },
+        dailyRevenue: [],
+        popularItems: [],
+        ordersByStatus: {},
+        orders: []
+      });
+    }
 
     // Общая статистика
     const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
@@ -82,7 +91,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     orders.forEach(order => {
       order.items.forEach(item => {
-        if (!item.menuItem || !item.menuItem.name) return;
+        // Пропускаем позиции с отсутствующими данными о товаре
+        if (!item?.menuItem?._id || !item.menuItem.name) return;
         
         const menuItemId = item.menuItem._id.toString();
         const current = popularItems.get(menuItemId) || {
@@ -115,7 +125,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       popularItems: Array.from(popularItems.values())
         .sort((a, b) => b.totalQuantity - a.totalQuantity)
         .slice(0, 6),
-      ordersByStatus
+      ordersByStatus,
+      orders: orders.map(order => ({
+        _id: order._id,
+        userId: order.userId,
+        items: order.items
+          .filter(item => item?.menuItem) // Фильтруем позиции с отсутствующими данными
+          .map(item => ({
+            menuItem: {
+              _id: item.menuItem!._id,
+              name: item.menuItem!.name,
+              price: item.menuItem!.price
+            },
+            quantity: item.quantity,
+            price: item.price
+          })),
+        totalAmount: order.totalAmount,
+        status: order.status,
+        createdAt: order.createdAt
+      }))
     });
   } catch (error) {
     console.error('Error fetching report data:', error);

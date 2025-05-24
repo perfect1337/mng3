@@ -47,6 +47,11 @@ const menuItemSchema = new mongoose.Schema({
 menuItemSchema.index({ name: 1, category: 1 });
 menuItemSchema.index({ price: 1 });
 
+// Добавляем индексы для фильтрации и сортировки
+menuItemSchema.index({ category: 1, price: 1 }); // Для фильтрации по категории и сортировки по цене
+menuItemSchema.index({ available: 1, category: 1 }); // Для фильтрации доступных товаров по категориям
+menuItemSchema.index({ createdAt: -1, category: 1 }); // Для сортировки по дате добавления в меню
+
 const MenuItem: Model<IMenuItem> = mongoose.models.MenuItem || mongoose.model<IMenuItem>('MenuItem', menuItemSchema);
 
 export default MenuItem; 
