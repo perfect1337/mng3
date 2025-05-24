@@ -37,16 +37,16 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 const Charts: React.FC<ChartProps> = ({ data }) => {
   // Format data for revenue chart
-  const revenueData = data.dailyRevenue.map(day => ({
-    date: day._id,
-    revenue: day.revenue,
-    orders: day.orders
+  const revenueData = data.dailyRevenue.map(item => ({
+    date: new Date(item._id).toLocaleDateString(),
+    revenue: item.revenue,
+    orders: item.orders
   }));
 
   // Format data for status pie chart
   const statusData = Object.entries(data.ordersByStatus).map(([status, count]) => ({
-    name: status,
-    value: count
+    status,
+    count
   }));
 
   // Format data for popular items bar chart
@@ -58,10 +58,10 @@ const Charts: React.FC<ChartProps> = ({ data }) => {
 
   return (
     <div className="space-y-8">
-      {/* Revenue Over Time */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Over Time</h3>
-        <div className="h-80">
+      {/* График выручки и заказов */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-semibold mb-4">Выручка и заказы по дням</h2>
+        <div className="h-[400px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={revenueData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -74,17 +74,34 @@ const Charts: React.FC<ChartProps> = ({ data }) => {
                 yAxisId="left"
                 type="monotone"
                 dataKey="revenue"
-                stroke="#8884d8"
-                name="Revenue ($)"
+                stroke="#10B981"
+                name="Выручка ($)"
               />
               <Line
                 yAxisId="right"
                 type="monotone"
                 dataKey="orders"
-                stroke="#82ca9d"
-                name="Orders"
+                stroke="#3B82F6"
+                name="Количество заказов"
               />
             </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* График статусов заказов */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-semibold mb-4">Статусы заказов</h2>
+        <div className="h-[400px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={statusData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="status" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="count" fill="#3B82F6" name="Количество заказов" />
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>

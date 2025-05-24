@@ -157,6 +157,15 @@ export default function AdminDashboard() {
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
 
+        <div className="mb-6 flex justify-between items-center">
+          <button
+            onClick={() => router.push('/admin/reports')}
+            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-200"
+          >
+            Просмотр отчетов
+          </button>
+        </div>
+
         <div className="grid md:grid-cols-2 gap-8">
           <div>
             <h2 className="text-2xl font-semibold mb-4">
